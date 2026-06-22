@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modelswap-replay"
+version = "0.1.0"
+description = "Offline replay and decision-record CLI for model release gates."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "click>=8.1",
+  "jsonschema>=4.22",
+  "pydantic>=2.7",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+modelswap = "modelswap_replay.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.2",
+]
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["modelswap_replay", "cli", "src"]

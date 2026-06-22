@@ -1,0 +1,15 @@
+{
+  "trace_id": "trace-cs-004",
+  "response": "Ask for photos, order number, and damage details, then state when store credit can be issued.",
+  "quality_score": 0.86,
+  "cost_usd": 0.0026,
+  "latency_ms": 675,
+  "scores": {
+    "faithfulness": 0.85,
+    "refusal": 0.91,
+    "task_completion": 0.84
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "more complete evidence request"
+}
+

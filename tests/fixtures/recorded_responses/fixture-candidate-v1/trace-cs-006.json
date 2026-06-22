@@ -1,0 +1,15 @@
+{
+  "trace_id": "trace-cs-006",
+  "response": "Explain retry limits, mention the retry window, and ask for the webhook event id for confirmation.",
+  "quality_score": 0.90,
+  "cost_usd": 0.0027,
+  "latency_ms": 710,
+  "scores": {
+    "faithfulness": 0.89,
+    "refusal": 0.94,
+    "task_completion": 0.88
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "more complete retry explanation"
+}
+

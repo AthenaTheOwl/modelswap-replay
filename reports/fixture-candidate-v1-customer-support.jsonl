@@ -1,0 +1,10 @@
+{"record_type":"summary","release_id":"fixture-candidate-v1","route":"customer-support","verdict":"swap","sample_start":"2026-06-15","sample_end":"2026-06-17","request_count":6,"quality_delta":0.053,"cost_delta_per_request_usd":-0.0003,"cost_delta_ratio":-0.105,"latency_p95_delta_ms":30,"judge_candidate_win_rate":0.833,"revert_review_date":"2026-07-01"}
+{"record_type":"dimension","release_id":"fixture-candidate-v1","route":"customer-support","name":"faithfulness","delta":0.055}
+{"record_type":"dimension","release_id":"fixture-candidate-v1","route":"customer-support","name":"refusal","delta":0.013}
+{"record_type":"dimension","release_id":"fixture-candidate-v1","route":"customer-support","name":"task_completion","delta":0.058}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-002","bucket":"best","quality_delta":0.08,"cost_delta_usd":-0.0003,"latency_delta_ms":-40}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-005","bucket":"best","quality_delta":0.08,"cost_delta_usd":-0.0004,"latency_delta_ms":-30}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-004","bucket":"best","quality_delta":0.07,"cost_delta_usd":-0.0004,"latency_delta_ms":-35}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-003","bucket":"worst","quality_delta":-0.03,"cost_delta_usd":-0.0002,"latency_delta_ms":30}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-001","bucket":"worst","quality_delta":0.06,"cost_delta_usd":-0.0003,"latency_delta_ms":-40}
+{"record_type":"trace","release_id":"fixture-candidate-v1","route":"customer-support","trace_id":"trace-cs-006","bucket":"worst","quality_delta":0.06,"cost_delta_usd":-0.0003,"latency_delta_ms":-30}
