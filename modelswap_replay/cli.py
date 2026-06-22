@@ -9,9 +9,48 @@ from modelswap_replay.rendering import render_decision_record
 from modelswap_replay.scoring import EvalRunner, OfflineJudge, choose_verdict
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_ROUTES = REPO_ROOT / "config" / "routes.yaml"
+DEFAULT_RECORDED_ROOT = REPO_ROOT / "tests" / "fixtures" / "recorded_responses"
+
+
 @click.group()
 def main() -> None:
     """ModelSwap Replay command group."""
+
+
+@main.command()
+@click.option(
+    "--routes",
+    "routes_path",
+    default=DEFAULT_ROUTES,
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Route registry to typed-validate.",
+)
+@click.option(
+    "--recorded-root",
+    default=DEFAULT_RECORDED_ROOT,
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Recorded-response root that must exist.",
+)
+def validate(routes_path: Path, recorded_root: Path) -> None:
+    """Typed-validate the bundled route registry and recorded fixtures.
+
+    Read-only first user action: loads config/routes.yaml through the
+    pydantic models and confirms the recorded-response root is present.
+    """
+
+    if not routes_path.exists():
+        raise click.ClickException(f"route registry not found: {routes_path}")
+    registry = load_route_registry(routes_path)
+    if not registry.routes:
+        raise click.ClickException(f"route registry has no routes: {routes_path}")
+    if not recorded_root.exists():
+        raise click.ClickException(f"recorded-response root not found: {recorded_root}")
+    names = ", ".join(route.name for route in registry.routes)
+    click.echo(f"validate: ok ({len(registry.routes)} route(s): {names})")
 
 
 @main.command()
