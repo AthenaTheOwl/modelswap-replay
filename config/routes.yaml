@@ -1,0 +1,16 @@
+routes:
+  - name: customer-support
+    incumbent: fixture-incumbent-v1
+    trace_store: tests/fixtures/trace_store/customer-support
+    sample:
+      window_days: 7
+      per_day_n: 10
+      strategy: stratified-by-intent
+      seed: 37
+    eval_suite: fixtures/customer_support_eval_v1
+    llm_judge_rubric: fixtures/customer_support_rubric.md
+    revert_threshold:
+      quality_drop_max: 0.03
+      cost_increase_max: 0.20
+      latency_p95_regression_ms_max: 250
+
