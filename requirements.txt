@@ -1,2 +1,4 @@
 streamlit>=1.40
 PyYAML>=6.0
+pydantic>=2.7
+.
