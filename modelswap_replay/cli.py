@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+import yaml
 
 from modelswap_replay.model import OfflineAdapter, ReplayRunner, load_route_registry, sample_requests
 from modelswap_replay.rendering import render_decision_record
@@ -12,11 +13,120 @@ from modelswap_replay.scoring import EvalRunner, OfflineJudge, choose_verdict
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ROUTES = REPO_ROOT / "config" / "routes.yaml"
 DEFAULT_RECORDED_ROOT = REPO_ROOT / "tests" / "fixtures" / "recorded_responses"
+DEFAULT_DECISION = (
+    REPO_ROOT / "decisions" / "model-swap" / "fixture-candidate-v1-customer-support.md"
+)
+
+
+def load_decision_front_matter(path: Path) -> dict:
+    """Parse the YAML front matter from a decision-record markdown file."""
+
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        raise click.ClickException(f"no YAML front matter in {path}")
+    _, front, _body = text.split("---", 2)
+    data = yaml.safe_load(front)
+    if not isinstance(data, dict):
+        raise click.ClickException(f"front matter is not a mapping in {path}")
+    return data
+
+
+def _fmt_signed(value: float, places: int) -> str:
+    return f"{value:+.{places}f}"
+
+
+def render_show(record: dict) -> str:
+    """Build a ranked, readable summary of a decision record."""
+
+    verdict = str(record.get("verdict", "?"))
+    route = str(record.get("route", "?"))
+    candidate = str(record.get("candidate", record.get("release_id", "?")))
+    incumbent = str(record.get("incumbent", "?"))
+    window = record.get("sample_window", {}) or {}
+    count = window.get("request_count", "?")
+    deltas = record.get("deltas", {}) or {}
+    judge = record.get("judge", {}) or {}
+    win_rate = judge.get("candidate_win_rate", 0.0)
+
+    quality = deltas.get("quality", 0.0)
+    cost_ratio = deltas.get("cost_ratio", 0.0)
+    latency = deltas.get("latency_p95_ms", 0)
+
+    headline = {
+        "swap": f"SWAP: {candidate} beats {incumbent} on {route} "
+        f"(quality {_fmt_signed(quality, 3)}, judge win-rate {win_rate:.0%}).",
+        "hold": f"HOLD: {candidate} did not clear the gate on {route}.",
+        "revert": f"REVERT: {candidate} regressed past the revert threshold on {route}.",
+    }.get(verdict, f"{verdict.upper()}: {candidate} on {route}.")
+
+    lines: list[str] = []
+    lines.append(f"model swap gate -- {candidate} -> {route}")
+    lines.append("=" * 56)
+    lines.append("")
+    lines.append(f"verdict        : {verdict}")
+    lines.append(f"incumbent      : {incumbent}")
+    lines.append(f"candidate      : {candidate}")
+    lines.append(
+        f"sample window  : {window.get('start', '?')}..{window.get('end', '?')} "
+        f"({count} requests)"
+    )
+    lines.append("")
+    lines.append("deltas (candidate vs incumbent)")
+    lines.append(f"  {'metric':<22}{'value':>12}")
+    lines.append(f"  {'-' * 22}{'-' * 12:>12}")
+    lines.append(f"  {'quality':<22}{_fmt_signed(quality, 3):>12}")
+    lines.append(f"  {'cost ratio':<22}{_fmt_signed(cost_ratio, 3):>12}")
+    lines.append(f"  {'latency p95 (ms)':<22}{f'{latency:+d}':>12}")
+    lines.append(f"  {'judge win-rate':<22}{win_rate:>11.0%}")
+    lines.append("")
+
+    best = record.get("best_traces", []) or []
+    worst = record.get("worst_traces", []) or []
+    ranked = sorted(
+        best + worst,
+        key=lambda t: t.get("quality_delta", 0.0),
+        reverse=True,
+    )
+    lines.append("traces ranked by quality delta")
+    lines.append(f"  {'rank':<5}{'trace':<16}{'quality':>10}{'cost usd':>12}{'lat ms':>9}")
+    lines.append(f"  {'-' * 5}{'-' * 16}{'-' * 10:>10}{'-' * 12:>12}{'-' * 9:>9}")
+    for rank, trace in enumerate(ranked, start=1):
+        lines.append(
+            f"  {rank:<5}{trace.get('trace_id', '?'):<16}"
+            f"{_fmt_signed(trace.get('quality_delta', 0.0), 3):>10}"
+            f"{_fmt_signed(trace.get('cost_delta_usd', 0.0), 4):>12}"
+            f"{trace.get('latency_delta_ms', 0):>+9d}"
+        )
+    lines.append("")
+    lines.append(headline)
+    return "\n".join(lines)
 
 
 @click.group()
 def main() -> None:
     """ModelSwap Replay command group."""
+
+
+@main.command()
+@click.option(
+    "--decision",
+    "decision_path",
+    default=DEFAULT_DECISION,
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Decision record to summarize.",
+)
+def show(decision_path: Path) -> None:
+    """Print a ranked, readable summary of the committed decision record.
+
+    Read-only and offline: parses the decision record's YAML front matter,
+    ranks the replayed traces by quality delta, and prints a headline verdict.
+    """
+
+    if not decision_path.exists():
+        raise click.ClickException(f"decision record not found: {decision_path}")
+    record = load_decision_front_matter(decision_path)
+    click.echo(render_show(record))
 
 
 @main.command()

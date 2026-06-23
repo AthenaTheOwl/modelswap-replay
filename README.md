@@ -49,6 +49,36 @@ python -m uv run modelswap replay \
   --out decisions/model-swap/fixture-candidate-v1-customer-support.md
 ```
 
+## show
+
+Print a ranked, readable summary of the committed decision record (read-only,
+offline):
+
+```bash
+python -m uv run modelswap show
+```
+
+It parses the decision record's YAML front matter, ranks the replayed traces by
+quality delta, and prints a headline verdict.
+
+## live demo
+
+Run the card-of-record browser locally:
+
+```bash
+python -m uv run --with streamlit streamlit run streamlit_app.py
+```
+
+The app reads the committed decision record
+(`decisions/model-swap/fixture-candidate-v1-customer-support.md`) directly: no
+network, no secrets. It shows the verdict, quality / cost / latency deltas, and
+a trace table ranked by quality delta with a regressions-only filter.
+
+Deploy on Streamlit Cloud: repo `AthenaTheOwl/modelswap-replay`, branch `main`,
+main file `streamlit_app.py`.
+
+<!-- live-url: https://share.streamlit.io/... -->
+
 ## Layout
 
 ```text
