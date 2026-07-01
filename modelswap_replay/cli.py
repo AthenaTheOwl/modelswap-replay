@@ -21,11 +21,18 @@ DEFAULT_DECISION = (
 def load_decision_front_matter(path: Path) -> dict:
     """Parse the YAML front matter from a decision-record markdown file."""
 
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as err:
+        # A directory or unreadable path lands here; name it instead of crashing.
+        raise click.ClickException(f"cannot read decision record {path}: {err}")
     if not text.startswith("---"):
         raise click.ClickException(f"no YAML front matter in {path}")
     _, front, _body = text.split("---", 2)
-    data = yaml.safe_load(front)
+    try:
+        data = yaml.safe_load(front)
+    except yaml.YAMLError as err:
+        raise click.ClickException(f"malformed YAML front matter in {path}: {err}")
     if not isinstance(data, dict):
         raise click.ClickException(f"front matter is not a mapping in {path}")
     return data
@@ -198,10 +205,24 @@ def replay(
     if not offline:
         raise click.ClickException("live model adapters are deferred to a later spec")
 
-    registry = load_route_registry(routes_path)
-    route = registry.get(route_name)
-    samples = sample_requests(route=route, registry_path=routes_path, since=since)
-    responses = ReplayRunner(adapter=OfflineAdapter(recorded_root)).run(samples, release_id)
+    try:
+        registry = load_route_registry(routes_path)
+    except OSError as err:
+        raise click.ClickException(f"cannot read route registry {routes_path}: {err}")
+    try:
+        route = registry.get(route_name)
+    except KeyError as err:
+        # KeyError already carries "unknown route ...; known routes: ..."; unwrap it
+        # so ClickException prints the message without KeyError's extra quoting.
+        raise click.ClickException(str(err.args[0]))
+    try:
+        samples = sample_requests(route=route, registry_path=routes_path, since=since)
+    except ValueError as err:
+        raise click.ClickException(f"bad --since {since!r}: {err}")
+    try:
+        responses = ReplayRunner(adapter=OfflineAdapter(recorded_root)).run(samples, release_id)
+    except FileNotFoundError as err:
+        raise click.ClickException(str(err))
     judge = OfflineJudge().score(samples, responses)
     summary = EvalRunner().evaluate(samples, responses, judge)
     verdict = choose_verdict(summary, route.revert_threshold)

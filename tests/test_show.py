@@ -30,3 +30,18 @@ def test_show_missing_record_errors_cleanly():
 
     assert result.exit_code != 0
     assert "decision record not found" in result.output
+
+
+def test_show_directory_errors_cleanly():
+    result = CliRunner().invoke(main, ["show", "--decision", "config"])
+
+    assert result.exit_code != 0
+    assert "cannot read decision record" in result.output
+
+
+def test_show_malformed_front_matter_errors_cleanly():
+    bad = Path("tests/fixtures/bad_front_matter.md")
+    result = CliRunner().invoke(main, ["show", "--decision", str(bad)])
+
+    assert result.exit_code != 0
+    assert "malformed YAML front matter" in result.output
