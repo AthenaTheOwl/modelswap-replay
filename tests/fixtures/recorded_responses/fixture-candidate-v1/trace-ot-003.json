@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-ot-003",
+  "response": "Give the scheduler the revised ETA, list the affected work order, and flag whether safety stock covers the first week.",
+  "quality_score": 0.84,
+  "cost_usd": 0.0024,
+  "latency_ms": 640,
+  "scores": {
+    "faithfulness": 0.83,
+    "actionability": 0.82,
+    "risk_flagging": 0.84
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "more specific schedule impact"
+}

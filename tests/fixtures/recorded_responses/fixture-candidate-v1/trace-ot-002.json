@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-ot-002",
+  "response": "Check AVL coverage, confirm the substitute's form-fit-function risk, and route the change through engineering before release.",
+  "quality_score": 0.83,
+  "cost_usd": 0.0023,
+  "latency_ms": 635,
+  "scores": {
+    "faithfulness": 0.82,
+    "actionability": 0.81,
+    "risk_flagging": 0.82
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "names approval path"
+}

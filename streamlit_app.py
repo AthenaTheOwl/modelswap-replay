@@ -5,6 +5,10 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
+from src.decide.verdict import choose_verdict
+from src.models.route_registry import RevertThreshold
+from src.score.eval_runner import ScoreSummary
+
 APP_DIR = Path(__file__).resolve().parent
 DECISION_PATH = APP_DIR / "decisions" / "model-swap" / "fixture-candidate-v1-customer-support.md"
 
@@ -101,9 +105,6 @@ st.info(headline)
 # live (swap / hold / route-split-at-25% / defer), with the same rationale the
 # cli writes into a decision record.
 
-from src.decide.verdict import choose_verdict
-from src.models.route_registry import RevertThreshold
-from src.score.eval_runner import ScoreSummary
 
 st.divider()
 st.header("gate a candidate yourself")
