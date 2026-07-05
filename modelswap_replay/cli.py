@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import click
@@ -170,6 +171,39 @@ def validate(routes_path: Path, recorded_root: Path) -> None:
     click.echo(f"validate: ok ({len(registry.routes)} route(s): {names})")
 
 
+def run_replay_for_route(route, release_id: str, since: str, routes_path: Path, recorded_root: Path):
+    samples = sample_requests(route=route, registry_path=routes_path, since=since)
+    responses = ReplayRunner(adapter=OfflineAdapter(recorded_root)).run(samples, release_id)
+    judge = OfflineJudge().score(samples, responses)
+    summary = EvalRunner().evaluate(samples, responses, judge)
+    verdict = choose_verdict(summary, route.revert_threshold)
+    record = render_decision_record(
+        release_id=release_id,
+        route=route,
+        samples=samples,
+        responses=responses,
+        summary=summary,
+        judge=judge,
+        verdict=verdict,
+    )
+    return samples, responses, judge, summary, verdict, record
+
+
+def batch_report_row(release_id: str, route, out_path: Path, summary, judge, verdict) -> dict[str, object]:
+    return {
+        "record_type": "batch-route",
+        "release_id": release_id,
+        "route": route.name,
+        "decision_path": out_path.as_posix(),
+        "verdict": verdict.verdict,
+        "request_count": summary.sample_count,
+        "quality_delta": summary.quality_delta,
+        "cost_delta_ratio": summary.cost_delta_ratio,
+        "latency_p95_delta_ms": summary.latency_p95_delta_ms,
+        "judge_candidate_win_rate": judge.candidate_win_rate,
+    }
+
+
 @main.command()
 @click.option("--route", "route_name", required=True, help="Route name from the route registry.")
 @click.option("--release", "release_id", required=True, help="Candidate release identifier.")
@@ -216,29 +250,92 @@ def replay(
         # so ClickException prints the message without KeyError's extra quoting.
         raise click.ClickException(str(err.args[0]))
     try:
-        samples = sample_requests(route=route, registry_path=routes_path, since=since)
+        _samples, _responses, _judge, _summary, _verdict, record = run_replay_for_route(
+            route, release_id, since, routes_path, recorded_root
+        )
     except ValueError as err:
         raise click.ClickException(f"bad --since {since!r}: {err}")
-    try:
-        responses = ReplayRunner(adapter=OfflineAdapter(recorded_root)).run(samples, release_id)
     except FileNotFoundError as err:
         raise click.ClickException(str(err))
-    judge = OfflineJudge().score(samples, responses)
-    summary = EvalRunner().evaluate(samples, responses, judge)
-    verdict = choose_verdict(summary, route.revert_threshold)
-    record = render_decision_record(
-        release_id=release_id,
-        route=route,
-        samples=samples,
-        responses=responses,
-        summary=summary,
-        judge=judge,
-        verdict=verdict,
-    )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(record, encoding="utf-8")
     click.echo(str(out_path))
+
+
+@main.command("batch-replay")
+@click.option("--release", "release_id", required=True, help="Candidate release identifier.")
+@click.option("--since", default="7d", show_default=True, help="Lookback window, for example 7d.")
+@click.option(
+    "--out-dir",
+    default=Path("decisions/model-swap"),
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Directory for per-route decision records.",
+)
+@click.option(
+    "--report",
+    "report_path",
+    default=None,
+    type=click.Path(path_type=Path),
+    help="JSONL batch report path (defaults to reports/<release>-batch.jsonl).",
+)
+@click.option(
+    "--routes",
+    "routes_path",
+    default=Path("config/routes.yaml"),
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Route registry path.",
+)
+@click.option(
+    "--recorded-root",
+    default=Path("tests/fixtures/recorded_responses"),
+    show_default=True,
+    type=click.Path(path_type=Path),
+    help="Offline recorded response root.",
+)
+@click.option("--offline/--live", default=True, show_default=True, help="Use fixture-backed responses.")
+def batch_replay(
+    release_id: str,
+    since: str,
+    out_dir: Path,
+    report_path: Path | None,
+    routes_path: Path,
+    recorded_root: Path,
+    offline: bool,
+) -> None:
+    """Run one offline replay pass for every route in the registry."""
+
+    if not offline:
+        raise click.ClickException("live model adapters are deferred to a later spec")
+    try:
+        registry = load_route_registry(routes_path)
+    except OSError as err:
+        raise click.ClickException(f"cannot read route registry {routes_path}: {err}")
+    report = report_path or Path("reports") / f"{release_id}-batch.jsonl"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report.parent.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    for route in registry.routes:
+        out_path = out_dir / f"{release_id}-{route.name}.md"
+        try:
+            _samples, _responses, judge, summary, verdict, record = run_replay_for_route(
+                route, release_id, since, routes_path, recorded_root
+            )
+        except ValueError as err:
+            raise click.ClickException(f"bad --since {since!r}: {err}")
+        except FileNotFoundError as err:
+            raise click.ClickException(str(err))
+        out_path.write_text(record, encoding="utf-8")
+        rows.append(batch_report_row(release_id, route, out_path, summary, judge, verdict))
+
+    with report.open("w", encoding="utf-8", newline="\n") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
+    click.echo(f"wrote {len(rows)} route decision(s) to {out_dir}")
+    click.echo(str(report))
 
 
 if __name__ == "__main__":

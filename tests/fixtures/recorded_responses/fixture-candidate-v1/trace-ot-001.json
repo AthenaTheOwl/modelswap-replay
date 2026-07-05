@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-ot-001",
+  "response": "Expedite only if the supplier confirms the miss in writing, then tag the order as schedule-critical and notify planning.",
+  "quality_score": 0.82,
+  "cost_usd": 0.0022,
+  "latency_ms": 610,
+  "scores": {
+    "faithfulness": 0.82,
+    "actionability": 0.82,
+    "risk_flagging": 0.8
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "clearer expedite condition"
+}

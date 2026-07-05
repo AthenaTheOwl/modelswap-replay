@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-ot-004",
+  "response": "Split the buy only after checking minimum order quantities, delivery dates, and qualification risk for the second supplier.",
+  "quality_score": 0.81,
+  "cost_usd": 0.0023,
+  "latency_ms": 620,
+  "scores": {
+    "faithfulness": 0.8,
+    "actionability": 0.8,
+    "risk_flagging": 0.81
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "risk conditions are explicit"
+}

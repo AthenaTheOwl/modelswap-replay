@@ -2,20 +2,19 @@
 
 ## Current state
 
-- v0.1 has an offline `modelswap replay` command that writes one decision record for one route and one candidate release.
-- The route registry, trace store fixture, recorded response fixture, scoring pass, verdict pass, and renderer are on disk.
+- v0.1 has offline `modelswap replay` and `modelswap batch-replay` commands. Single replay writes one decision record; batch replay writes one record per route plus a JSONL batch report.
+- The route registry now carries two routes (`customer-support` and `order-triage`) with separate trace-store and recorded-response fixtures.
 - The checked-in report is `decisions/model-swap/fixture-candidate-v1-customer-support.md`.
 
 ## Known limits
 
 - Live model adapters are deferred.
-- Batch replay across all routes is deferred.
 - The score plane uses fixture scores and a fixture judge; it does not call a live eval service.
 
 ## Next feature queue
 
 - Add a live replay adapter with explicit model API boundaries and no router changes.
-- Add multi-route batch invocation with one record per route.
+- Add a route-diff report that compares two candidate releases across the same batch.
 - Add the eval-predictive-validity report from `R-MSR-011`.
 
 - Resolve factory defect: implementation produced no file changes relative to base; refusing to mark a no-op as done
