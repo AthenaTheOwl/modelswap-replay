@@ -15,18 +15,19 @@ old release tag is three deploys back and nobody wrote down what "worse" was
 supposed to mean.
 
 modelswap-replay makes the swap go through a gate. It samples recent traffic
-for one route, replays it against the candidate, scores quality, cost, and
-latency against the incumbent, runs a pairwise judge over the qualitative
-axes the eval suite misses, and writes the whole thing to a Markdown file with
+for each registered route, replays it against the candidate, scores quality, cost,
+and latency against the incumbent, runs a pairwise judge over the qualitative
+axes the eval suite misses, and writes each result to a Markdown file with
 YAML front matter. That file — the decision record — is the deliverable, not
 the verdict it carries. You can review it, validate it against a schema, and
 merge it. And it carries a `revert_threshold:` block written before the swap
 ships: the quality drop, cost increase, and p95 regression that will pull the
 release back, plus the date someone has to look again.
 
-v0.1 is offline only. One route, one checked-in fixture (`customer-support`),
-a recorded judge, no live model calls. The gate is the point; the network is
-deliberately absent.
+v0.1 is offline only. Two fixture routes (`customer-support` and
+`order-triage`) share one registry and one batch replay. Each route keeps its own
+decision record; the batch ledger makes partial failures visible. The judge is
+recorded and no live model calls occur.
 
 ## Try it
 
@@ -100,6 +101,14 @@ gate here looks like a gate there:
 
 ```bash
 python -m pytest -v
+python -m cli.main batch-replay \
+  --release fixture-candidate-v1 \
+  --since 7d \
+  --offline \
+  --routes tests/fixtures/routes.yaml \
+  --recorded-root tests/fixtures/recorded_responses \
+  --out-dir decisions/model-swap \
+  --report reports/fixture-candidate-v1-batch.jsonl
 python -m cli.main replay \
   --route customer-support \
   --release fixture-candidate-v1 \
@@ -136,17 +145,18 @@ rule. The gate refuses to let a swap go out undated.
 modelswap_replay/   cli, model, scoring, rendering
 cli/main.py         the replay entrypoint
 src/                sampler, replay, score, decide, render, models
-config/routes.yaml  the one fixture route
+config/routes.yaml  the two-route registry
 schemas/            decision-record + route schemas
-decisions/model-swap/fixture-candidate-v1-customer-support.md   the checked-in record
-reports/            the JSONL report behind it
+decisions/model-swap/  one checked-in record per route
+reports/            per-route JSONL plus the batch ledger
 specs/  tests/
 ```
 
 ## Scope
 
-Offline replay, one route per invocation, fixture-backed judge and recorded
-responses. No router changes, no live model calls.
+Offline replay over two fixture routes, with single-route and batch entrypoints, a
+fixture-backed judge, and recorded responses. No router changes and no live model
+calls. Adding production traffic capture is intentionally outside v0.1.
 
 ## License
 
