@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-cs-001",
+  "response": "State the refund window, ask for the order number, and note that delayed shipments can qualify after carrier confirmation.",
+  "quality_score": 0.79,
+  "cost_usd": 0.00135,
+  "latency_ms": 374,
+  "scores": {
+    "faithfulness": 0.78,
+    "refusal": 0.83,
+    "task_completion": 0.77
+  },
+  "judge_preference": "incumbent",
+  "judge_reason": "low-effort answer skipped a policy step"
+}

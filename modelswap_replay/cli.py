@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -336,6 +337,123 @@ def batch_replay(
             handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
     click.echo(f"wrote {len(rows)} route decision(s) to {out_dir}")
     click.echo(str(report))
+
+
+
+def _load_route(routes_path: Path, route_name: str):
+    try:
+        registry = load_route_registry(routes_path)
+    except OSError as err:
+        raise click.ClickException(f"cannot read route registry {routes_path}: {err}")
+    try:
+        return registry.get(route_name)
+    except KeyError as err:
+        raise click.ClickException(str(err.args[0]))
+
+
+@main.command()
+@click.option("--route", "route_name", required=True, help="Route name from the route registry.")
+@click.option("--release", "release_id", required=True, help="Base release id; settings live at <release>-effort-<setting>.")
+@click.option("--efforts", default="low,medium,high", show_default=True, help="Comma-separated effort settings, cheapest first.")
+@click.option("--since", default="7d", show_default=True, help="Lookback window, for example 7d.")
+@click.option("--routes", "routes_path", default=Path("config/routes.yaml"), show_default=True, type=click.Path(path_type=Path))
+@click.option("--recorded-root", default=Path("tests/fixtures/recorded_responses"), show_default=True, type=click.Path(path_type=Path))
+@click.option("--json", "as_json", is_flag=True, help="Print the curve as JSON.")
+def curve(route_name: str, release_id: str, efforts: str, since: str, routes_path: Path, recorded_root: Path, as_json: bool) -> None:
+    """Replay one route at each effort setting and pick the cheapest that clears the revert thresholds.
+
+    Each setting runs through the same sample, judge and verdict as `replay`.
+    Exit 0 when at least one setting earns `swap`, 1 when none does.
+    """
+    route = _load_route(routes_path, route_name)
+    rows = []
+    for effort in [e.strip() for e in efforts.split(",") if e.strip()]:
+        setting_id = f"{release_id}-effort-{effort}"
+        if not (recorded_root / setting_id).is_dir():
+            raise click.ClickException(f"no recorded responses for {setting_id!r} under {recorded_root}")
+        try:
+            _s, _r, judge, summary, verdict, _rec = run_replay_for_route(route, setting_id, since, routes_path, recorded_root)
+        except ValueError as err:
+            raise click.ClickException(f"bad --since {since!r}: {err}")
+        rows.append({
+            "effort": effort,
+            "release_id": setting_id,
+            "verdict": verdict.verdict,
+            "quality_delta": summary.quality_delta,
+            "cost_delta_ratio": summary.cost_delta_ratio,
+            "latency_p95_delta_ms": summary.latency_p95_delta_ms,
+            "judge_candidate_win_rate": judge.candidate_win_rate,
+        })
+    clearing = [r for r in rows if r["verdict"] == "swap"]
+    pick = min(clearing, key=lambda r: r["cost_delta_ratio"]) if clearing else None
+    if as_json:
+        click.echo(json.dumps({"route": route.name, "release_id": release_id, "curve": rows,
+                               "cheapest_clearing": pick["effort"] if pick else None}, indent=2))
+    else:
+        click.echo(f"effort curve -- {release_id} -> {route.name} (vs {route.incumbent})")
+        click.echo(f"  {'effort':<8} {'verdict':<20} {'quality':>8} {'cost':>8} {'p95 ms':>8} {'judge':>6}")
+        for r in rows:
+            click.echo(f"  {r['effort']:<8} {r['verdict']:<20} {r['quality_delta']:>+8.3f} "
+                       f"{r['cost_delta_ratio']:>+8.1%} {r['latency_p95_delta_ms']:>+8.0f} {r['judge_candidate_win_rate']:>6.0%}")
+        click.echo("cheapest setting that clears the revert thresholds: " + (pick["effort"] if pick else "none"))
+    raise SystemExit(0 if pick else 1)
+
+
+CARD_FIELDS = ("route", "incumbent", "candidate", "verdict", "sample_window", "deltas", "judge",
+               "revert_threshold", "revert_review_date")
+
+
+def _card_digest(card: dict) -> str:
+    body = {k: v for k, v in card.items() if k != "card_sha256"}
+    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_card(decision_path: Path) -> dict:
+    record = load_decision_front_matter(decision_path)
+    card = {"card_version": "0.1", "kind": "model-swap-equivalence-card"}
+    card.update({k: record.get(k) for k in CARD_FIELDS})
+    card["inputs"] = {"decision_record": {
+        "path": decision_path.name,
+        # line endings normalised so the same record hashes the same on every checkout
+        "sha256": "sha256:" + hashlib.sha256(decision_path.read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
+    }}
+    card["card_sha256"] = _card_digest(card)
+    return card
+
+
+@main.command()
+@click.option("--decision", "decision_path", default=DEFAULT_DECISION, show_default=True, type=click.Path(path_type=Path),
+              help="Decision record to summarize into a card.")
+@click.option("--out", "out_path", type=click.Path(path_type=Path), help="Write the card here instead of stdout.")
+@click.option("--verify", "verify_path", type=click.Path(path_type=Path), help="Check an existing card's digest and exit.")
+def card(decision_path: Path, out_path: Path | None, verify_path: Path | None) -> None:
+    """Emit a shareable, content-addressed result for one swap decision.
+
+    The card carries the verdict, deltas, judge summary and revert rule, plus the
+    sha256 of the decision record it came from and a digest over its own canonical
+    JSON. Anyone holding the card can re-check the digest; anyone holding the record
+    can re-check the input hash. (Signing the digest is left to a later spec.)
+    """
+    if verify_path is not None:
+        try:
+            existing = json.loads(Path(verify_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            raise click.ClickException(f"cannot read card {verify_path}: {err}")
+        ok = existing.get("card_sha256") == _card_digest(existing)
+        click.echo(f"{'ok' if ok else 'digest mismatch'}: {verify_path}")
+        raise SystemExit(0 if ok else 1)
+    try:
+        result = build_card(decision_path)
+    except (OSError, ValueError) as err:
+        raise click.ClickException(str(err))
+    text = json.dumps(result, indent=2, ensure_ascii=False, default=str) + "\n"
+    if out_path is None:
+        click.echo(text, nl=False)
+    else:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+        click.echo(f"wrote {out_path} ({result['card_sha256']})")
 
 
 if __name__ == "__main__":

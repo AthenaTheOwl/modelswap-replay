@@ -1,0 +1,38 @@
+{
+  "card_version": "0.1",
+  "kind": "model-swap-equivalence-card",
+  "route": "customer-support",
+  "incumbent": "fixture-incumbent-v1",
+  "candidate": "fixture-candidate-v1",
+  "verdict": "swap",
+  "sample_window": {
+    "start": "2026-06-15",
+    "end": "2026-06-17",
+    "request_count": 6
+  },
+  "deltas": {
+    "quality": 0.053,
+    "cost_per_request_usd": -0.0003,
+    "cost_ratio": -0.105,
+    "latency_p95_ms": 30
+  },
+  "judge": {
+    "candidate_win_rate": 0.833,
+    "candidate_wins": 5,
+    "incumbent_wins": 1,
+    "ties": 0
+  },
+  "revert_threshold": {
+    "quality_drop_max": 0.03,
+    "cost_increase_max": 0.2,
+    "latency_p95_regression_ms_max": 250
+  },
+  "revert_review_date": "2026-07-01",
+  "inputs": {
+    "decision_record": {
+      "path": "fixture-candidate-v1-customer-support.md",
+      "sha256": "sha256:26478c9caed6012f758bea0ea82d0d35b994a7785674ac6681c320d843aa32e0"
+    }
+  },
+  "card_sha256": "sha256:1666070503193ed6bfd3707b69be600f3132053648a73583f21584f1a485a121"
+}

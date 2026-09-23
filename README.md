@@ -70,6 +70,32 @@ trace-cs-003 is the one that got worse. It's still in the table, at the
 bottom, because a swap that hides its one regression isn't a swap you should
 trust.
 
+## Effort settings and the card
+
+The same model at a different effort setting is a different release: it costs and answers differently. `curve` replays one route at each setting and names the cheapest one that clears the route's own revert thresholds:
+
+```bash
+python -m uv run modelswap curve --route customer-support --release fixture-candidate-v1
+```
+
+```text
+effort curve -- fixture-candidate-v1 -> customer-support (vs fixture-incumbent-v1)
+  effort   verdict               quality     cost   p95 ms  judge
+  low      hold                   -0.037   -55.2%     -325    33%
+  medium   swap                   +0.053   -10.5%      +30    83%
+  high     route-split-at-25%     +0.083  +114.8%     +978    83%
+cheapest setting that clears the revert thresholds: medium
+```
+
+Low saves half the cost and loses the judge. High buys three hundredths of quality for more than double the spend. The low and high fixtures are synthetic variants of the recorded candidate (`scripts/make_effort_fixtures.py`), so the curve shows the mechanism, not a measurement.
+
+`card` turns a decision record into a shareable result: verdict, deltas, judge summary and revert rule, the sha256 of the record it came from, and a digest over its own canonical JSON. `card --verify` re-checks the digest, so an edited card fails:
+
+```bash
+python -m uv run modelswap card --out reports/cards/fixture-candidate-v1-customer-support.json
+python -m uv run modelswap card --verify reports/cards/fixture-candidate-v1-customer-support.json
+```
+
 ## Live demo
 
 The card-of-record browser is the same decision record as a page you can poke
