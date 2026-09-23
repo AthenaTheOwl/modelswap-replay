@@ -415,7 +415,8 @@ def build_card(decision_path: Path) -> dict:
     card.update({k: record.get(k) for k in CARD_FIELDS})
     card["inputs"] = {"decision_record": {
         "path": decision_path.name,
-        "sha256": "sha256:" + hashlib.sha256(decision_path.read_bytes()).hexdigest(),
+        # line endings normalised so the same record hashes the same on every checkout
+        "sha256": "sha256:" + hashlib.sha256(decision_path.read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
     }}
     card["card_sha256"] = _card_digest(card)
     return card

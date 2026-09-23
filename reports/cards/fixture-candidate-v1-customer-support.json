@@ -31,8 +31,8 @@
   "inputs": {
     "decision_record": {
       "path": "fixture-candidate-v1-customer-support.md",
-      "sha256": "sha256:7a3e561dc80e056363cbac73d5c30167381cd7cfe8d3eec73460d3424206c144"
+      "sha256": "sha256:26478c9caed6012f758bea0ea82d0d35b994a7785674ac6681c320d843aa32e0"
     }
   },
-  "card_sha256": "sha256:227022db2648cf2a9db44468fd775049743238f966dcda07e8f5ab99a0064a91"
+  "card_sha256": "sha256:1666070503193ed6bfd3707b69be600f3132053648a73583f21584f1a485a121"
 }
