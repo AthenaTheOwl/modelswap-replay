@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-cs-002",
+  "response": "Confirm the renewal date, explain the duplicate-charge check, and give the billing escalation step.",
+  "quality_score": 0.87,
+  "cost_usd": 0.006,
+  "latency_ms": 1430,
+  "scores": {
+    "faithfulness": 0.86,
+    "refusal": 0.93,
+    "task_completion": 0.83
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "more direct escalation"
+}

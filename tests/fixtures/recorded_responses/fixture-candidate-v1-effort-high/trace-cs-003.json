@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-cs-003",
+  "response": "Point to the export menu but omit the admin access condition.",
+  "quality_score": 0.86,
+  "cost_usd": 0.00696,
+  "latency_ms": 1738,
+  "scores": {
+    "faithfulness": 0.87,
+    "refusal": 0.95,
+    "task_completion": 0.84
+  },
+  "judge_preference": "incumbent",
+  "judge_reason": "incumbent included access condition"
+}

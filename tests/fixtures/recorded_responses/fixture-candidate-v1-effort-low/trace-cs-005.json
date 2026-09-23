@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-cs-005",
+  "response": "List the owner-transfer requirements and identify who must approve the change.",
+  "quality_score": 0.8,
+  "cost_usd": 0.0014,
+  "latency_ms": 385,
+  "scores": {
+    "faithfulness": 0.79,
+    "refusal": 0.84,
+    "task_completion": 0.77
+  },
+  "judge_preference": "candidate",
+  "judge_reason": "more specific approval path"
+}

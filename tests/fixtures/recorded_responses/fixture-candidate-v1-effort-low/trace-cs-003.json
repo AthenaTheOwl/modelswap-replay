@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace-cs-003",
+  "response": "Point to the export menu but omit the admin access condition.",
+  "quality_score": 0.74,
+  "cost_usd": 0.00145,
+  "latency_ms": 435,
+  "scores": {
+    "faithfulness": 0.75,
+    "refusal": 0.83,
+    "task_completion": 0.72
+  },
+  "judge_preference": "incumbent",
+  "judge_reason": "low-effort answer skipped a policy step"
+}
