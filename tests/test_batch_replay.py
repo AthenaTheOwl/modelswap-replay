@@ -39,7 +39,11 @@ def test_batch_replay_writes_one_decision_per_route(tmp_path: Path) -> None:
     rows = [json.loads(line) for line in report.read_text(encoding="utf-8").splitlines()]
     assert [row["route"] for row in rows] == ["customer-support", "order-triage"]
     assert all(row["record_type"] == "batch-route" for row in rows)
-    assert all(row["verdict"] == "swap" for row in rows)
+    # 6 and 4 sampled requests against a 70-request route design: both defer
+    assert [row["request_count"] for row in rows] == [6, 4]
+    assert all(row["min_request_count"] == 70 for row in rows)
+    assert all(row["verdict"] == "defer" for row in rows)
+    assert [row["judge_win_rate_ci95"] for row in rows] == [[0.436, 0.97], [0.51, 1.0]]
 
 
 def test_batch_replay_missing_recorded_response_errors_cleanly(tmp_path: Path) -> None:

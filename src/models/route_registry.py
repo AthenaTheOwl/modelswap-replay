@@ -13,11 +13,27 @@ class RevertThreshold(BaseModel):
     latency_p95_regression_ms_max: int = Field(ge=0)
 
 
+# Smallest default sample a verdict may rest on. At n=30 an observed 70%
+# judge win rate has a 95% Wilson interval of about 0.52-0.83, which clears
+# a coin; at n=20 the same rate's interval reaches below 0.5. See
+# decisions/DEC-MSR-001-minimum-sample-guard.md.
+MIN_SAMPLE_FLOOR = 30
+
+
 class SampleConfig(BaseModel):
     window_days: PositiveInt = 7
     per_day_n: PositiveInt = 200
     strategy: Literal["all", "stratified-by-intent"] = "stratified-by-intent"
     seed: int = 17
+    # Fewest sampled requests a non-defer verdict needs. When unset, the
+    # route's own sample design (window_days x per_day_n) is the minimum,
+    # and never less than MIN_SAMPLE_FLOOR.
+    min_sample_count: PositiveInt | None = None
+
+    def required_sample_count(self) -> int:
+        if self.min_sample_count is not None:
+            return self.min_sample_count
+        return max(self.window_days * self.per_day_n, MIN_SAMPLE_FLOOR)
 
 
 class RouteConfig(BaseModel):

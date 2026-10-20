@@ -29,7 +29,8 @@
               "window_days": { "type": "integer", "minimum": 1 },
               "per_day_n": { "type": "integer", "minimum": 1 },
               "strategy": { "enum": ["all", "stratified-by-intent"] },
-              "seed": { "type": "integer" }
+              "seed": { "type": "integer" },
+              "min_sample_count": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           },

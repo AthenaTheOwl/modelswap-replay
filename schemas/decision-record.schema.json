@@ -26,11 +26,12 @@
     "candidate": { "type": "string", "minLength": 1 },
     "sample_window": {
       "type": "object",
-      "required": ["start", "end", "request_count"],
+      "required": ["start", "end", "request_count", "min_request_count"],
       "properties": {
         "start": { "type": "string" },
         "end": { "type": "string" },
-        "request_count": { "type": "integer", "minimum": 1 }
+        "request_count": { "type": "integer", "minimum": 1 },
+        "min_request_count": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     },
@@ -51,12 +52,23 @@
     },
     "judge": {
       "type": "object",
-      "required": ["candidate_win_rate", "candidate_wins", "incumbent_wins", "ties"],
+      "required": [
+        "candidate_win_rate",
+        "candidate_wins",
+        "incumbent_wins",
+        "ties",
+        "judged_count",
+        "win_rate_ci95_low",
+        "win_rate_ci95_high"
+      ],
       "properties": {
         "candidate_win_rate": { "type": "number", "minimum": 0, "maximum": 1 },
         "candidate_wins": { "type": "integer", "minimum": 0 },
         "incumbent_wins": { "type": "integer", "minimum": 0 },
-        "ties": { "type": "integer", "minimum": 0 }
+        "ties": { "type": "integer", "minimum": 0 },
+        "judged_count": { "type": "integer", "minimum": 1 },
+        "win_rate_ci95_low": { "type": "number", "minimum": 0, "maximum": 1 },
+        "win_rate_ci95_high": { "type": "number", "minimum": 0, "maximum": 1 }
       },
       "additionalProperties": false
     },

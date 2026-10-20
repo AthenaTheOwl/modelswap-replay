@@ -6,7 +6,7 @@ import streamlit as st
 import yaml
 
 from src.decide.verdict import choose_verdict
-from src.models.route_registry import RevertThreshold
+from src.models.route_registry import MIN_SAMPLE_FLOOR, RevertThreshold
 from src.score.eval_runner import ScoreSummary
 
 APP_DIR = Path(__file__).resolve().parent
@@ -61,7 +61,17 @@ col3.metric("judge win-rate", f"{win_rate:.0%}")
 col4, col5, col6 = st.columns(3)
 col4.metric("cost ratio", f"{cost_ratio:+.3f}")
 col5.metric("latency p95 (ms)", f"{latency:+d}")
-col6.metric("sampled requests", window.get("request_count", "?"))
+col6.metric(
+    "sampled requests",
+    window.get("request_count", "?"),
+    help=f"minimum for a non-defer verdict: {window.get('min_request_count', '?')}",
+)
+if "win_rate_ci95_low" in judge:
+    st.caption(
+        f"judge: {judge.get('candidate_wins', '?')} of {judge.get('judged_count', '?')} "
+        f"requests preferred the candidate; 95% Wilson interval "
+        f"{judge['win_rate_ci95_low']:.0%}-{judge['win_rate_ci95_high']:.0%}."
+    )
 
 best = record.get("best_traces", []) or []
 worst = record.get("worst_traces", []) or []
@@ -93,7 +103,8 @@ if verdict == "swap":
 elif verdict == "revert":
     headline = f"revert: {candidate} regressed past the revert threshold on {route}."
 else:
-    headline = f"{verdict}: {candidate} on {route}."
+    reason = (record.get("rationale") or ["no rationale recorded"])[0]
+    headline = f"{verdict}: {candidate} on {route}: {reason}."
 st.info(headline)
 
 # ---------------------------------------------------------------------------
@@ -111,7 +122,8 @@ st.header("gate a candidate yourself")
 st.caption(
     "set the replay deltas and the route's revert thresholds, then run the real "
     "verdict engine (`choose_verdict`) live. starts pre-filled with the committed "
-    "customer-support pass — drop quality below the threshold or win-rate below "
+    "customer-support pass, which defers on 6 requests against a minimum of 70 — "
+    "raise the sample, then drop quality below the threshold or win-rate below "
     "0.5 and watch it flip to hold."
 )
 
@@ -127,6 +139,11 @@ with ic1:
     in_quality = st.slider(
         "quality delta", min_value=-0.50, max_value=0.50,
         value=float(quality), step=0.001, format="%.3f",
+    )
+    in_min_count = st.number_input(
+        "minimum sample for a verdict", min_value=1, max_value=100000,
+        value=int(window.get("min_request_count", MIN_SAMPLE_FLOOR)), step=1,
+        help="below this many sampled requests the gate defers",
     )
     in_win_rate = st.slider(
         "judge candidate win-rate", min_value=0.0, max_value=1.0,
@@ -176,7 +193,7 @@ live_threshold = RevertThreshold(
     cost_increase_max=float(th_cost),
     latency_p95_regression_ms_max=int(th_latency),
 )
-result = choose_verdict(live_summary, live_threshold)
+result = choose_verdict(live_summary, live_threshold, min_sample_count=int(in_min_count))
 
 st.subheader("live verdict")
 verdict_label = {

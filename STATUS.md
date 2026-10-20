@@ -5,6 +5,7 @@
 - v0.1 has offline `modelswap replay` and `modelswap batch-replay` commands. Single replay writes one decision record; batch replay writes one record per route plus a JSONL batch report.
 - The route registry now carries two routes (`customer-support` and `order-triage`) with separate trace-store and recorded-response fixtures.
 - The checked-in report is `decisions/model-swap/fixture-candidate-v1-customer-support.md`.
+- Both committed fixture records defer: 6 and 4 sampled requests against the routes' 70-request design (DEC-MSR-001). They said `swap` before the minimum-sample guard.
 
 ## Known limits
 

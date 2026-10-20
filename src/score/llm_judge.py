@@ -1,9 +1,26 @@
 from __future__ import annotations
 
+from math import sqrt
+
 from pydantic import BaseModel
 
 from src.replay.replay_runner import ReplayResponse
 from src.sampler.traffic_sampler import SampledRequest
+
+
+Z_95 = 1.959964
+
+
+def wilson_interval(successes: int, n: int, z: float = Z_95) -> tuple[float, float]:
+    """Two-sided Wilson score interval for a binomial proportion."""
+
+    if n <= 0:
+        return (0.0, 1.0)
+    p = successes / n
+    denominator = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denominator
+    half = z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denominator
+    return (round(max(0.0, center - half), 3), round(min(1.0, center + half), 3))
 
 
 class JudgeSummary(BaseModel):
@@ -12,6 +29,8 @@ class JudgeSummary(BaseModel):
     incumbent_wins: int
     ties: int
     reasons: list[str]
+    judged_count: int = 0
+    win_rate_ci95: tuple[float, float] = (0.0, 1.0)
 
 
 class OfflineJudge:
@@ -38,5 +57,7 @@ class OfflineJudge:
             incumbent_wins=incumbent_wins,
             ties=ties,
             reasons=reasons,
+            judged_count=len(samples),
+            win_rate_ci95=wilson_interval(candidate_wins, len(samples)),
         )
 

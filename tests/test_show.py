@@ -10,8 +10,13 @@ def test_show_prints_ranked_readable_summary():
 
     assert result.exit_code == 0, result.output
     out = result.output
-    # headline verdict
-    assert "SWAP: fixture-candidate-v1 beats fixture-incumbent-v1" in out
+    # headline verdict: the committed record rests on 6 requests, so it defers
+    assert (
+        "DEFER: fixture-candidate-v1 on customer-support: insufficient sample: "
+        "6 requests, below the minimum of 70." in out
+    )
+    assert "(6 requests, minimum 70)" in out
+    assert "5/6, 44%-97%" in out
     # ranked trace table, best quality delta first
     assert "traces ranked by quality delta" in out
     lines = [line for line in out.splitlines() if line.strip().startswith("1 ")]

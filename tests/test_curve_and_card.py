@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import yaml
+
 from click.testing import CliRunner
 
 from cli.main import main
@@ -9,8 +11,34 @@ from modelswap_replay.cli import DEFAULT_DECISION, build_card
 REPO = Path(__file__).resolve().parents[1]
 
 
-def test_curve_picks_cheapest_setting_that_clears_thresholds():
+def _routes_with_min_sample(tmp_path, minimum):
+    # The six-request fixture is below the committed routes' 70-request
+    # minimum, so the curve mechanism is exercised with an explicit override.
+    routes = yaml.safe_load((REPO / "config" / "routes.yaml").read_text(encoding="utf-8"))
+    for route in routes["routes"]:
+        route["trace_store"] = str(REPO / route["trace_store"])
+        route["sample"]["min_sample_count"] = minimum
+    path = tmp_path / "routes.yaml"
+    path.write_text(yaml.safe_dump(routes), encoding="utf-8")
+    return path
+
+
+def test_curve_defers_every_setting_on_the_committed_routes():
     result = CliRunner().invoke(main, ["curve", "--route", "customer-support", "--release", "fixture-candidate-v1", "--json"])
+    assert result.exit_code == 1, result.output
+    data = json.loads(result.output)
+    assert [(r["effort"], r["verdict"], r["request_count"]) for r in data["curve"]] == [
+        ("low", "defer", 6),
+        ("medium", "defer", 6),
+        ("high", "defer", 6),
+    ]
+    assert data["cheapest_clearing"] is None
+
+
+def test_curve_picks_cheapest_setting_that_clears_thresholds(tmp_path):
+    routes = _routes_with_min_sample(tmp_path, 6)
+    result = CliRunner().invoke(main, ["curve", "--route", "customer-support", "--release", "fixture-candidate-v1",
+                                       "--routes", str(routes), "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert [(r["effort"], r["verdict"]) for r in data["curve"]] == [
@@ -38,7 +66,9 @@ def test_curve_unknown_setting_errors_cleanly():
 def test_card_is_stable_and_tracks_its_input(tmp_path):
     first, second = build_card(Path(DEFAULT_DECISION)), build_card(Path(DEFAULT_DECISION))
     assert first == second
-    assert first["verdict"] == "swap" and first["route"] == "customer-support"
+    assert first["verdict"] == "defer" and first["route"] == "customer-support"
+    assert first["sample_window"]["min_request_count"] == 70
+    assert first["judge"]["judged_count"] == 6
 
     edited = tmp_path / Path(DEFAULT_DECISION).name
     edited.write_bytes(Path(DEFAULT_DECISION).read_bytes() + b" ")
