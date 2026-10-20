@@ -2,9 +2,11 @@
 
 A new model release lands and someone wants to point production traffic at it
 by Friday. modelswap-replay replays six recorded customer-support requests
-against the candidate, finds it wins five of six and loses one, and stamps a
-verdict: swap. The interesting part is not the number. It's the dated revert
-rule it writes next to it, before the swap goes live.
+against the candidate, finds the judge prefers it on five of six, and stamps a
+verdict: defer. Six requests is short of the 70 the route is designed to
+sample, and five of six is compatible with a coin (95% interval 44% to 97%).
+The record still carries the dated revert rule, written before any swap
+goes live.
 
 ## What it does
 
@@ -24,6 +26,15 @@ merge it. And it carries a `revert_threshold:` block written before the swap
 ships: the quality drop, cost increase, and p95 regression that will pull the
 release back, plus the date someone has to look again.
 
+A verdict needs a minimum sample. Below it, the gate defers with
+"insufficient sample" whatever the deltas say. The minimum is the route's
+`sample.min_sample_count` when set, and otherwise its sample design
+(`window_days` x `per_day_n`), never below 30. Each record reports the number
+of requests, the minimum, and a 95% Wilson interval around the judge win rate.
+[DEC-MSR-001](decisions/DEC-MSR-001-minimum-sample-guard.md) records the
+choice and what it changed: both committed fixture records went from `swap` to
+`defer`.
+
 v0.1 is offline only. Two fixture routes (`customer-support` and
 `order-triage`) share one registry and one batch replay. Each route keeps its own
 decision record; the batch ledger makes partial failures visible. The judge is
@@ -42,10 +53,10 @@ python -m uv run modelswap show
 model swap gate -- fixture-candidate-v1 -> customer-support
 ========================================================
 
-verdict        : swap
+verdict        : defer
 incumbent      : fixture-incumbent-v1
 candidate      : fixture-candidate-v1
-sample window  : 2026-06-15..2026-06-17 (6 requests)
+sample window  : 2026-06-15..2026-06-17 (6 requests, minimum 70)
 
 deltas (candidate vs incumbent)
   metric                       value
@@ -54,6 +65,7 @@ deltas (candidate vs incumbent)
   cost ratio                  -0.105
   latency p95 (ms)               +30
   judge win-rate                83%
+    judged n, 95% CI    5/6, 44%-97%
 
 traces ranked by quality delta
   rank trace              quality    cost usd   lat ms
@@ -64,11 +76,14 @@ traces ranked by quality delta
   4    trace-cs-001        +0.060     -0.0003      -40
   5    trace-cs-006        +0.060     -0.0003      -30
   6    trace-cs-003        -0.030     -0.0002      +30
+
+DEFER: fixture-candidate-v1 on customer-support: insufficient sample: 6 requests, below the minimum of 70.
 ```
 
 trace-cs-003 is the one that got worse. It's still in the table, at the
 bottom, because a swap that hides its one regression isn't a swap you should
-trust.
+trust. The deltas all pass the route's thresholds; the verdict is defer only
+because six requests is below the minimum.
 
 ## Effort settings and the card
 
@@ -80,14 +95,19 @@ python -m uv run modelswap curve --route customer-support --release fixture-cand
 
 ```text
 effort curve -- fixture-candidate-v1 -> customer-support (vs fixture-incumbent-v1)
-  effort   verdict               quality     cost   p95 ms  judge
-  low      hold                   -0.037   -55.2%     -325    33%
-  medium   swap                   +0.053   -10.5%      +30    83%
-  high     route-split-at-25%     +0.083  +114.8%     +978    83%
-cheapest setting that clears the revert thresholds: medium
+  effort   verdict               quality     cost   p95 ms  judge    n  judge 95% CI
+  low      defer                  -0.037   -55.2%     -325    33%    6  10%-70%
+  medium   defer                  +0.053   -10.5%      +30    83%    6  44%-97%
+  high     defer                  +0.083  +114.8%     +978    83%    6  44%-97%
+minimum sample for a non-defer verdict: 70 requests
+cheapest setting that clears the revert thresholds: none
 ```
 
-Low saves half the cost and loses the judge. High buys three hundredths of quality for more than double the spend. The low and high fixtures are synthetic variants of the recorded candidate (`scripts/make_effort_fixtures.py`), so the curve shows the mechanism, not a measurement.
+Every setting defers: each rests on the same six requests. With the minimum
+lowered to 6 in the route registry (`sample.min_sample_count: 6`), low holds
+on quality, high splits on cost and latency, and medium is the cheapest
+setting that swaps. Low saves half the cost and loses the judge. High buys
+three hundredths of quality for more than double the spend. The low and high fixtures are synthetic variants of the recorded candidate (`scripts/make_effort_fixtures.py`), so the curve shows the mechanism, not a measurement.
 
 `card` turns a decision record into a shareable result: verdict, deltas, judge summary and revert rule, the sha256 of the record it came from, and a digest over its own canonical JSON. `card --verify` re-checks the digest, so an edited card fails:
 
@@ -114,10 +134,12 @@ main file `streamlit_app.py`.
 
 ## How it connects
 
-The [harness comparison protocol](docs/harness-change-experiment.md) extends the
-existing replay discipline to tool, retrieval, compaction and reviewer changes.
-It names the experiment metadata and per-task evidence to retain, and keeps
-synthetic effort fixtures separate from measured provider results.
+The [harness comparison protocol](docs/harness-change-experiment.md) describes
+how to apply the same replay discipline to tool, retrieval, compaction and
+reviewer changes. The tooling does not record those components yet, so their
+metadata lives in a separate experiment manifest. The protocol names the
+per-task evidence to retain and keeps synthetic effort fixtures separate from
+measured provider results.
 
 The decision record borrows its shape from the rest of the portfolio, so a
 gate here looks like a gate there:
@@ -179,7 +201,7 @@ src/                sampler, replay, score, decide, render, models
 config/routes.yaml  the two-route registry
 schemas/            decision-record + route schemas
 decisions/model-swap/  one checked-in record per route
-reports/            per-route JSONL plus the batch ledger
+reports/            the batch ledger, the card, and a v0.1 per-route JSONL that no command regenerates
 specs/  tests/
 ```
 

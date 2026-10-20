@@ -4,11 +4,12 @@
   "route": "customer-support",
   "incumbent": "fixture-incumbent-v1",
   "candidate": "fixture-candidate-v1",
-  "verdict": "swap",
+  "verdict": "defer",
   "sample_window": {
     "start": "2026-06-15",
     "end": "2026-06-17",
-    "request_count": 6
+    "request_count": 6,
+    "min_request_count": 70
   },
   "deltas": {
     "quality": 0.053,
@@ -20,7 +21,10 @@
     "candidate_win_rate": 0.833,
     "candidate_wins": 5,
     "incumbent_wins": 1,
-    "ties": 0
+    "ties": 0,
+    "judged_count": 6,
+    "win_rate_ci95_low": 0.436,
+    "win_rate_ci95_high": 0.97
   },
   "revert_threshold": {
     "quality_drop_max": 0.03,
@@ -31,8 +35,8 @@
   "inputs": {
     "decision_record": {
       "path": "fixture-candidate-v1-customer-support.md",
-      "sha256": "sha256:26478c9caed6012f758bea0ea82d0d35b994a7785674ac6681c320d843aa32e0"
+      "sha256": "sha256:194e9f4a6b10c5469a4e536fb139b9c4c8a339cee5f9eed8faef71393e877e38"
     }
   },
-  "card_sha256": "sha256:1666070503193ed6bfd3707b69be600f3132053648a73583f21584f1a485a121"
+  "card_sha256": "sha256:96b45489241d1bd9f8a169cc0640ebca6015ebb698b8ea1ffa4563c93da9ab1a"
 }

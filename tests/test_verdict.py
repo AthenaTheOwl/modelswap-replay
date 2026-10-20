@@ -7,7 +7,7 @@ from tests.support import build_fixture_run
 def _summary(**overrides) -> ScoreSummary:
     # A passing baseline; each test overrides one field to steer a branch.
     base = dict(
-        sample_count=4,
+        sample_count=70,
         quality_delta=0.05,
         cost_delta_usd=-0.001,
         cost_delta_ratio=-0.1,
@@ -27,13 +27,18 @@ THRESHOLD = RevertThreshold(
 )
 
 
-def test_verdict_is_swap_for_fixture_candidate():
-    _route, _samples, _responses, _judge, summary, verdict = build_fixture_run()
+def test_verdict_defers_for_six_request_fixture_candidate():
+    # The fixture passes every delta check but rests on 6 requests against a
+    # route design of 7 days x 10 per day; it used to come out "swap".
+    route, _samples, _responses, _judge, summary, verdict = build_fixture_run()
 
     assert summary.quality_delta == 0.053
     assert summary.cost_delta_ratio == -0.105
     assert summary.latency_p95_delta_ms == 30
-    assert verdict.verdict == "swap"
+    assert summary.sample_count == 6
+    assert route.sample.required_sample_count() == 70
+    assert verdict.verdict == "defer"
+    assert verdict.rationale == ["insufficient sample: 6 requests, below the minimum of 70"]
 
 
 def test_verdict_defers_when_no_samples():
@@ -44,21 +49,21 @@ def test_verdict_defers_when_no_samples():
 
 
 def test_verdict_holds_on_quality_drop():
-    result = choose_verdict(_summary(quality_delta=-0.05), THRESHOLD)
+    result = choose_verdict(_summary(quality_delta=-0.05), THRESHOLD, min_sample_count=70)
 
     assert result.verdict == "hold"
     assert result.rationale == ["quality_delta -0.05 is below -0.03"]
 
 
 def test_verdict_holds_on_low_judge_win_rate():
-    result = choose_verdict(_summary(judge_candidate_win_rate=0.4), THRESHOLD)
+    result = choose_verdict(_summary(judge_candidate_win_rate=0.4), THRESHOLD, min_sample_count=70)
 
     assert result.verdict == "hold"
     assert result.rationale == ["judge candidate win rate 0.4 is below 0.5"]
 
 
 def test_verdict_route_splits_on_cost_over():
-    result = choose_verdict(_summary(cost_delta_ratio=0.5), THRESHOLD)
+    result = choose_verdict(_summary(cost_delta_ratio=0.5), THRESHOLD, min_sample_count=70)
 
     assert result.verdict == "route-split-at-25%"
     assert result.rationale == [
@@ -67,7 +72,7 @@ def test_verdict_route_splits_on_cost_over():
 
 
 def test_verdict_route_splits_on_latency_over():
-    result = choose_verdict(_summary(latency_p95_delta_ms=500), THRESHOLD)
+    result = choose_verdict(_summary(latency_p95_delta_ms=500), THRESHOLD, min_sample_count=70)
 
     assert result.verdict == "route-split-at-25%"
     assert result.rationale == [

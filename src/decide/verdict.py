@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from src.models.route_registry import RevertThreshold
+from src.models.route_registry import MIN_SAMPLE_FLOOR, RevertThreshold
 from src.score.eval_runner import ScoreSummary
 
 
@@ -11,9 +11,30 @@ class VerdictResult(BaseModel):
     rationale: list[str]
 
 
-def choose_verdict(summary: ScoreSummary, threshold: RevertThreshold) -> VerdictResult:
+def choose_verdict(
+    summary: ScoreSummary,
+    threshold: RevertThreshold,
+    min_sample_count: int = MIN_SAMPLE_FLOOR,
+) -> VerdictResult:
+    """Pick swap / route-split / hold / defer for one scored replay.
+
+    Below `min_sample_count` sampled requests the verdict is defer: no
+    quality, judge, cost or latency comparison is trusted on that few
+    requests. Callers with a route pass `route.sample.required_sample_count()`;
+    the default is the documented floor (MIN_SAMPLE_FLOOR).
+    """
+
     if summary.sample_count == 0:
         return VerdictResult(verdict="defer", rationale=["no sampled requests were available"])
+
+    if summary.sample_count < min_sample_count:
+        return VerdictResult(
+            verdict="defer",
+            rationale=[
+                f"insufficient sample: {summary.sample_count} requests, "
+                f"below the minimum of {min_sample_count}"
+            ],
+        )
 
     if summary.quality_delta < -threshold.quality_drop_max:
         return VerdictResult(

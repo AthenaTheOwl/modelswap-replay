@@ -56,6 +56,11 @@ def render_show(record: dict) -> str:
     deltas = record.get("deltas", {}) or {}
     judge = record.get("judge", {}) or {}
     win_rate = judge.get("candidate_win_rate", 0.0)
+    judged = judge.get("judged_count")
+    ci_low = judge.get("win_rate_ci95_low")
+    ci_high = judge.get("win_rate_ci95_high")
+    min_count = window.get("min_request_count")
+    rationale = record.get("rationale", []) or []
 
     quality = deltas.get("quality", 0.0)
     cost_ratio = deltas.get("cost_ratio", 0.0)
@@ -66,6 +71,8 @@ def render_show(record: dict) -> str:
         f"(quality {_fmt_signed(quality, 3)}, judge win-rate {win_rate:.0%}).",
         "hold": f"HOLD: {candidate} did not clear the gate on {route}.",
         "revert": f"REVERT: {candidate} regressed past the revert threshold on {route}.",
+        "defer": f"DEFER: {candidate} on {route}: "
+        + (rationale[0] if rationale else "not enough signal") + ".",
     }.get(verdict, f"{verdict.upper()}: {candidate} on {route}.")
 
     lines: list[str] = []
@@ -77,7 +84,8 @@ def render_show(record: dict) -> str:
     lines.append(f"candidate      : {candidate}")
     lines.append(
         f"sample window  : {window.get('start', '?')}..{window.get('end', '?')} "
-        f"({count} requests)"
+        f"({count} requests"
+        + (f", minimum {min_count})" if min_count is not None else ")")
     )
     lines.append("")
     lines.append("deltas (candidate vs incumbent)")
@@ -87,6 +95,9 @@ def render_show(record: dict) -> str:
     lines.append(f"  {'cost ratio':<22}{_fmt_signed(cost_ratio, 3):>12}")
     lines.append(f"  {'latency p95 (ms)':<22}{f'{latency:+d}':>12}")
     lines.append(f"  {'judge win-rate':<22}{win_rate:>11.0%}")
+    if judged is not None and ci_low is not None and ci_high is not None:
+        wins = judge.get("candidate_wins", "?")
+        lines.append(f"  {'  judged n, 95% CI':<22}{f'{wins}/{judged}, {ci_low:.0%}-{ci_high:.0%}':>12}")
     lines.append("")
 
     best = record.get("best_traces", []) or []
@@ -177,7 +188,9 @@ def run_replay_for_route(route, release_id: str, since: str, routes_path: Path, 
     responses = ReplayRunner(adapter=OfflineAdapter(recorded_root)).run(samples, release_id)
     judge = OfflineJudge().score(samples, responses)
     summary = EvalRunner().evaluate(samples, responses, judge)
-    verdict = choose_verdict(summary, route.revert_threshold)
+    verdict = choose_verdict(
+        summary, route.revert_threshold, min_sample_count=route.sample.required_sample_count()
+    )
     record = render_decision_record(
         release_id=release_id,
         route=route,
@@ -198,10 +211,12 @@ def batch_report_row(release_id: str, route, out_path: Path, summary, judge, ver
         "decision_path": out_path.as_posix(),
         "verdict": verdict.verdict,
         "request_count": summary.sample_count,
+        "min_request_count": route.sample.required_sample_count(),
         "quality_delta": summary.quality_delta,
         "cost_delta_ratio": summary.cost_delta_ratio,
         "latency_p95_delta_ms": summary.latency_p95_delta_ms,
         "judge_candidate_win_rate": judge.candidate_win_rate,
+        "judge_win_rate_ci95": list(judge.win_rate_ci95),
     }
 
 
@@ -383,6 +398,8 @@ def curve(route_name: str, release_id: str, efforts: str, since: str, routes_pat
             "cost_delta_ratio": summary.cost_delta_ratio,
             "latency_p95_delta_ms": summary.latency_p95_delta_ms,
             "judge_candidate_win_rate": judge.candidate_win_rate,
+            "request_count": summary.sample_count,
+            "judge_win_rate_ci95": list(judge.win_rate_ci95),
         })
     clearing = [r for r in rows if r["verdict"] == "swap"]
     pick = min(clearing, key=lambda r: r["cost_delta_ratio"]) if clearing else None
@@ -391,10 +408,13 @@ def curve(route_name: str, release_id: str, efforts: str, since: str, routes_pat
                                "cheapest_clearing": pick["effort"] if pick else None}, indent=2))
     else:
         click.echo(f"effort curve -- {release_id} -> {route.name} (vs {route.incumbent})")
-        click.echo(f"  {'effort':<8} {'verdict':<20} {'quality':>8} {'cost':>8} {'p95 ms':>8} {'judge':>6}")
+        click.echo(f"  {'effort':<8} {'verdict':<20} {'quality':>8} {'cost':>8} {'p95 ms':>8} {'judge':>6} {'n':>4}  judge 95% CI")
         for r in rows:
+            low, high = r["judge_win_rate_ci95"]
             click.echo(f"  {r['effort']:<8} {r['verdict']:<20} {r['quality_delta']:>+8.3f} "
-                       f"{r['cost_delta_ratio']:>+8.1%} {r['latency_p95_delta_ms']:>+8.0f} {r['judge_candidate_win_rate']:>6.0%}")
+                       f"{r['cost_delta_ratio']:>+8.1%} {r['latency_p95_delta_ms']:>+8.0f} {r['judge_candidate_win_rate']:>6.0%} "
+                       f"{r['request_count']:>4}  {low:.0%}-{high:.0%}")
+        click.echo(f"minimum sample for a non-defer verdict: {route.sample.required_sample_count()} requests")
         click.echo("cheapest setting that clears the revert thresholds: " + (pick["effort"] if pick else "none"))
     raise SystemExit(0 if pick else 1)
 

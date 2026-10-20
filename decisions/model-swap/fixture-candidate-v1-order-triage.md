@@ -1,13 +1,14 @@
 ---
 release_id: fixture-candidate-v1
 route: order-triage
-verdict: swap
+verdict: defer
 incumbent: fixture-incumbent-v1
 candidate: fixture-candidate-v1
 sample_window:
   start: '2026-06-15'
   end: '2026-06-17'
   request_count: 4
+  min_request_count: 70
 deltas:
   quality: 0.087
   cost_per_request_usd: -0.0002
@@ -22,6 +23,9 @@ judge:
   candidate_wins: 4
   incumbent_wins: 0
   ties: 0
+  judged_count: 4
+  win_rate_ci95_low: 0.51
+  win_rate_ci95_high: 1.0
 best_traces:
   - trace_id: trace-ot-001
     quality_delta: 0.1
@@ -54,22 +58,23 @@ revert_threshold:
   latency_p95_regression_ms_max: 250
 revert_review_date: '2026-07-01'
 rationale:
-  - candidate passed quality, cost, latency, and judge thresholds
+  - 'insufficient sample: 4 requests, below the minimum of 70'
 ---
 # Model Swap - fixture-candidate-v1 -> order-triage
 
 ## Verdict
-- verdict: swap
+- verdict: defer
 - incumbent: fixture-incumbent-v1
 - candidate: fixture-candidate-v1
 - sample_window: 2026-06-15..2026-06-17 (4 requests)
+- minimum_requests_for_verdict: 70
 
 ## Deltas
 - quality_delta: +0.087
 - cost_delta_per_request_usd: -0.0002
 - cost_delta_ratio: -0.080
 - latency_p95_delta_ms: -25
-- judge_candidate_win_rate: 1.000
+- judge_candidate_win_rate: 1.000 (4/4, 95% Wilson interval 0.510-1.000)
 
 ## Dimensions
 - actionability: +0.125
@@ -94,4 +99,4 @@ revert_threshold:
 - revert_review_date: 2026-07-01
 
 ## Rationale
-- candidate passed quality, cost, latency, and judge thresholds
+- insufficient sample: 4 requests, below the minimum of 70

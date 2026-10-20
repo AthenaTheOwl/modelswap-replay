@@ -22,6 +22,8 @@ def build_fixture_run():
     responses = ReplayRunner(OfflineAdapter(RECORDED_ROOT)).run(samples, "fixture-candidate-v1")
     judge = OfflineJudge().score(samples, responses)
     summary = EvalRunner().evaluate(samples, responses, judge)
-    verdict = choose_verdict(summary, route.revert_threshold)
+    verdict = choose_verdict(
+        summary, route.revert_threshold, min_sample_count=route.sample.required_sample_count()
+    )
     return route, samples, responses, judge, summary, verdict
 
