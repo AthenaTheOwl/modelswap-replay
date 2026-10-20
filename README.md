@@ -114,10 +114,12 @@ main file `streamlit_app.py`.
 
 ## How it connects
 
-The [harness comparison protocol](docs/harness-change-experiment.md) extends the
-existing replay discipline to tool, retrieval, compaction and reviewer changes.
-It names the experiment metadata and per-task evidence to retain, and keeps
-synthetic effort fixtures separate from measured provider results.
+The [harness comparison protocol](docs/harness-change-experiment.md) describes
+how to apply the same replay discipline to tool, retrieval, compaction and
+reviewer changes. The tooling does not record those components yet, so their
+metadata lives in a separate experiment manifest. The protocol names the
+per-task evidence to retain and keeps synthetic effort fixtures separate from
+measured provider results.
 
 The decision record borrows its shape from the rest of the portfolio, so a
 gate here looks like a gate there:
