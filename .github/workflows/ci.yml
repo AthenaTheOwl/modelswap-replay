@@ -52,6 +52,6 @@ jobs:
         run: python -m uv run python scripts/validate_schemas.py
 
       - name: voice-lint
-        run: python -m uv run python scripts/voice_lint.py
+        run: python -m uv run python scripts/voice_lint.py decisions/model-swap docs README.md
       - name: validate_data_conformance
         run: python -m uv run python scripts/validate_data_conformance.py
